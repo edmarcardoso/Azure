@@ -6,20 +6,19 @@ Function Setup_IIS_Basic
 
 {
 
-<#Declare parameters 
+<#Declare parameters
 
-$rgName
-$vNetName
-$vNetPrefix
-$vNetSubnets
-$vNetSubnetsPrefixes
-$svrname
-$servicename
-$stype
-$loc
-$labno
-$vmno
-$vnet
+$RGName - Resource Group Name
+$LocName - Location Available in your Azure Subscription.
+
+$vNetName - Azure Virtual Network Name (vNET)
+$vNetPrefix - vNet NDR Address
+$vNetSubnets - vNet Subnet Name
+$vNetSubnetsPrefixes - vNEt Subnet Address
+
+$stName - Azure Storage Account Name
+
+
 
 
 #>
