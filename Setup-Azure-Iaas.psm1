@@ -18,7 +18,8 @@ $vNetSubnetsPrefixes - vNEt Subnet Address
 
 $stName - Azure Storage Account Name
 
-
+$vmName - Azure VM Name
+$VMSize - Azure VM Size
 
 
 #>
@@ -27,11 +28,40 @@ $stName - Azure Storage Account Name
 
 Param (
 
+[parameter(Mandatory=$true)]
+            [ValidateCount(1,5)]
+            [String[]]
+            $RGName,
 
+[parameter(Mandatory=$true)]
+            [ValidateCount(1,5)]
+            [String[]]
+            $LocName,
 
+[parameter (Mandatory=$true)]
+           [ValidateCount(1,5)]
+           [string[]]
+           $vNetName,
 
+[parameter (Mandatory=$true)]
+           [ValidateCount(1,5)]
+           [string[]]
+           $vNetPrefix,
 
+[parameter (Mandatory=$true)]
+           [ValidateCount(1,5)]
+           [string[]]
+           $vNetSubnets,
 
+[parameter (Mandatory=$true)]
+           [ValidateCount(1,5)]
+           [string[]]
+           $vNetSubnetsPrefixes,
+
+[parameter (Mandatory=$true)]
+           [ValidateCount(1,5)]
+           [string[]]
+           $stName
 
 )
 
@@ -57,11 +87,71 @@ If ($IsAzuerModuleInstalled -eq $null){
 
 Write-Host ""
 Write-Warning "The Azure PowerShell Module is not installed"
+
+break
+
 Write-Host ""
 
 }
 else{
 
 Write-Host " The Azure PowerShell is Installed" -ForegroundColor Yellow
+
+}
+
+Start-Sleep -Seconds 10
+
+cls #Clean the screen
+
+#Colecting Azure Subscripton
+
+Write-Host ""
+Write-Host "Connecting to your Azure Subscription" -ForegroundColor Yellow
+Write-Host ""
+
+Write-Host "Informe your Credencial below:"
+Write-Host ""
+$azureAccountName = Read-Host "Your Azure Account Name is" 
+Write-Host ""
+$azureAccountPassword = Read-Host "Your Azure Account Password" -AsSecureString
+
+$azurePassword = ConvertTo-SecureString $azureAccountPassword -AsPlainText -Force
+
+$psCred = New-Object System.Management.Automation.PSCredential($azureAccountName, $azurePassword)
+
+Login-AzureRmAccount -Credential $psCred
+
+
+#Selecting Azure Location
+
+
+
+
+
+
+#Create Resource Group
+
+
+
+
+
+
+#Create vNET
+
+
+
+
+#Create Storage Account
+
+
+
+# Create VM
+
+  #Selection VM Size
+
+
+
+
+
 
 }
