@@ -109,20 +109,36 @@ Write-Host ""
 Write-Host "Connecting to your Azure Subscription" -ForegroundColor Yellow
 Write-Host ""
 
-Write-Host "Informe your Credencial below:"
-Write-Host ""
-$azureAccountName = Read-Host "Your Azure Account Name is" 
-Write-Host ""
-$azureAccountPassword = Read-Host "Your Azure Account Password" -AsSecureString
-
-$azurePassword = ConvertTo-SecureString $azureAccountPassword -AsPlainText -Force
-
-$psCred = New-Object System.Management.Automation.PSCredential($azureAccountName, $azurePassword)
-
-Login-AzureRmAccount -Credential $psCred
+Login-AzureRmAccount | Out-Null ; Add-AzureAccount | Out-Null
 
 
 #Selecting Azure Location
+
+$hash = Get-AzureLocation | Group-Object DisplayName -AsHashTable
+    
+#Add an index number for each location
+    
+$counter = 0
+
+foreach($key in $($hash.keys)){
+        $counter++
+        $hash[$key] = $counter
+    }
+
+    
+#Display the list, and ask for the index number
+    
+$hash
+    
+Write-Host -NoNewline "Enter the number (value) of the Azure region to use: "  -ForegroundColor Magenta; $locationnumber=read-host 
+
+#Display the chosen location
+    
+$global:location = $hash.Keys | ? { $hash[$_] -eq $locationnumber }
+    
+Write-Host "Your Azure region is: " $global:location -ForegroundColor Green
+
+
 
 
 
