@@ -36,7 +36,12 @@ Param (
 [parameter(Mandatory=$true)]
             [ValidateCount(1,5)]
             [String[]]
-            $LocName,
+            $global:location,
+
+[parameter (Mandatory=$true)]
+           [ValidateCount(1,5)]
+           [string[]]
+           $NSGName,
 
 [parameter (Mandatory=$true)]
            [ValidateCount(1,5)]
@@ -64,8 +69,6 @@ Param (
            $stName
 
 )
-
-
 
 
 #Validate if you have Administrative Right to run scripts
@@ -99,7 +102,7 @@ Write-Host " The Azure PowerShell is Installed" -ForegroundColor Yellow
 
 }
 
-Start-Sleep -Seconds 10
+Start-Sleep -Seconds 5
 
 cls #Clean the screen
 
@@ -130,7 +133,7 @@ foreach($key in $($hash.keys)){
     
 $hash
     
-Write-Host -NoNewline "Enter the number (value) of the Azure region to use: "  -ForegroundColor Magenta; $locationnumber=read-host 
+Write-Host -NoNewline "Enter the number (value) of the Azure region to use: "  -ForegroundColor Magenta ; $locationnumber=read-host 
 
 #Display the chosen location
     
@@ -140,24 +143,92 @@ Write-Host "Your Azure region is: " $global:location -ForegroundColor Green
 
 
 
-
-
-
-
-
 #Create Resource Group
 
+Write-Host ""
+Write-Host "Creating The Resource Group" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Enter the Resource Group Name: " -ForegroundColor Magenta -NoNewline ; $RGName = Read-Host
 
+New-AzureRmResourceGroup -Name $RGName -Location $global:location
 
-
-
+Start-Sleep -Seconds 5
 
 #Create vNET
 
+Write-Host ""
+Write-Host "Creating The Virtual Network (vNET)" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Enter the Virtual Network Name:" -ForegroundColor Magenta -NoNewline ; $vNetName = Read-Host
+Write-Host "Enter The AddressPrefix of vNET: " -ForegroundColor Magenta -NoNewline ; $vNetPrefix = Read-Host
+Write-Host "Enter The Subnet Name:" -ForegroundColor Magenta -NoNewline ; $vNetSubnets = Read-Host
+Write-Host "Enter The Subnet AddressPrefix:" -ForegroundColor Magenta -NoNewline ; $vNetSubnetsPrefixes = Read-Host
 
+$singleSubnet = New-AzureRmVirtualNetworkSubnetConfig -Name $vNetSubnets -AddressPrefix $vNetSubnetsPrefixes
+
+$vnet = New-AzureRmVirtualNetwork -Name $vNetName -ResourceGroupName $RGName -AddressPrefix $vNetPrefix -Location $global:location -Subnet $singleSubnet
+
+Set-AzureRMVirtualNetwork –VirtualNetwork $vnet
+
+Start-Sleep -Seconds 5
+
+#Create a NSG
+
+    # 1º Create Basics Rule to ensure External Access
+
+     $rule1 = New-AzureRmNetworkSecurityRuleConfig -Name Rule_External_Access -Description "Permit RDP Access" `
+    -Access Allow -Protocol Tcp -Direction Inbound -Priority 100 `
+    -SourceAddressPrefix Internet -SourcePortRange * `
+    -DestinationAddressPrefix VirtualNetwork -DestinationPortRange 3389
+
+
+    #Create The NSG
+
+    Write-Host ""
+    Write-Host "Creating The Network Security Group (NSG)" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Enter The NSG Name:" -ForegroundColor Magenta -NoNewline ; $NSGName = Read-Host
+
+    $NSG = New-AzureRmNetworkSecurityGroup -ResourceGroupName $RGName -Location $global:location -Name $NSGName -SecurityRules $rule1
+
+    #Associte The NSG with vNET
+
+
+    Set-AzureRmVirtualNetworkSubnetConfig -VirtualNetwork $vnet -Name $vNetSubnets  -AddressPrefix $vNetSubnetsPrefixes   -NetworkSecurityGroup $NSG
+    
+    Set-AzureRMVirtualNetwork –VirtualNetwork $vnet
 
 
 #Create Storage Account
+
+ Write-Host ""
+ Write-Host "Creating The Azure Storage Account" -ForegroundColor Yellow
+ Write-Host ""
+
+
+#Select Storage Account Type
+
+Write-Host "Choose a Storage Type:" -ForegroundColor Yellow
+Write-Host ""
+Write-Host " 1-Standard_LRS " -ForegroundColor Green
+Write-Host " 2-Standard_ZRS " -ForegroundColor Green
+Write-Host " 3-Standard_GRS " -ForegroundColor Green
+Write-Host " 4-Standard_RAGRS" -ForegroundColor Green
+Write-Host ""
+Write-Host "Enter The number of your Choose:" -ForegroundColor Magenta -NoNewline ; $Sttype = Read-Host
+
+switch ($Sttype) {
+
+             1 { $Stype = "Standard_LRS" }
+             2 {$Stype = "Standard_ZRS"}
+             3 {$Stype = "Standard_GRS"}
+             4 {$Stype = "Standard_RAGRS"}
+
+}
+
+
+Write-Host "Enter The Azure Storage Account Name" -NoNewline -ForegroundColor Magenta ; Write-Host "(ex. storage003)" -NoNewline ;Write-Host ":" -NoNewline -ForegroundColor Magenta ; $stName = Read-Host
+New-AzureRmStorageAccount -ResourceGroupName $RGName -Name $stName -location $global:location -AccountType $Stype
 
 
 
@@ -166,7 +237,7 @@ Write-Host "Your Azure region is: " $global:location -ForegroundColor Green
   #Selection VM Size
 
 
-
+  
 
 
 
