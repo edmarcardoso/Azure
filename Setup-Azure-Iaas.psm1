@@ -236,8 +236,33 @@ New-AzureRmStorageAccount -ResourceGroupName $RGName -Name $stName -location $gl
 
   #Selection VM Size
 
+$LocName = $global:location
+$VMAzureSizes = Get-AzureRoleSize 
+$AzureLocationReousrce = Get-AzureLocation | where {$_.Name -eq $LocName} # Colete All Resource within specific Azure Location
+$VirtualMachineRoleSizes = $AzureLocationReousrce.VirtualMachineRoleSizes
 
+foreach ($ASize in $VirtualMachineRoleSizes){
+
+ 
+   
+  foreach ($VMSize in ($VMAzureSizes | Where {$_.InstanceSize -eq $ASize} )){
   
+  
+    
+    $props = @{
+        
+        Index = $counter++
+        VMSizes = $VMSize.RoleSizeLabel}
+    
+    $out += New-Object PsObject -Property $props
+    
+   }
+
+
+ }
+
+ $out | Format-Table -AutoSize -Wrap Index, VMSizes 
+
 
 
 
