@@ -236,32 +236,56 @@ New-AzureRmStorageAccount -ResourceGroupName $RGName -Name $stName -location $gl
 
   #Selection VM Size
 
+Write-Host ""
+Write-Host "Creating a New VM" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Choose an Azure VM Size" -ForegroundColor Magenta
+
+
+$out =@()
 $LocName = $global:location
 $VMAzureSizes = Get-AzureRoleSize 
 $AzureLocationReousrce = Get-AzureLocation | where {$_.Name -eq $LocName} # Colete All Resource within specific Azure Location
-$VirtualMachineRoleSizes = $AzureLocationReousrce.VirtualMachineRoleSizes
+$VirtualMachineRoleSizes = $AzureLocationReousrce.VirtualMachineRoleSizes 
+
+$counter = 0
 
 foreach ($ASize in $VirtualMachineRoleSizes){
-
- 
-   
-  foreach ($VMSize in ($VMAzureSizes | Where {$_.InstanceSize -eq $ASize} )){
-  
   
     
-    $props = @{
+   foreach ($VMSize in ($VMAzureSizes | Where {$_.InstanceSize -eq $ASize} )){
+  
+    $hash = $VMSize | Group-Object -Property RoleSizeLabel -AsHashTable
+       
+     foreach($key in $($hash.Keys)){ 
         
-        Index = $counter++
-        VMSizes = $VMSize.RoleSizeLabel}
+        $counter++
+        $hash[$key] = $counter
+
+        $out+= $hash
     
-    $out += New-Object PsObject -Property $props
+         }
+     
+     }
     
    }
 
+#Display the list, and ask for the index number
 
- }
+$out |  Format-Table -AutoSize
 
- $out | Format-Table -AutoSize -Wrap Index, VMSizes 
+
+#Select an Valeu Number
+    
+Write-Host ""
+    
+Write-Host -NoNewline "Enter the number (value) of the Azure VM Size that you want: "  -ForegroundColor Magenta ; $VMSizenumber=read-host 
+
+#Display the chosen location
+    
+$global:Size = $hash.Keys | ? { $hash[$_] -eq $VMSizenumber }
+Write-Host""    
+Write-Host "Your Azure VM Size is: " $global:Size -ForegroundColor Green
 
 
 
