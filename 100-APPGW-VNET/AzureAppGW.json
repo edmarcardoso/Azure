@@ -1,0 +1,324 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "applicationGatewayName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "location": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "Region"
+      }
+    },
+    "virtualNetworkName": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "Application Gateway vnet name"
+      }
+    },
+    "virtualNetworkResourceGroup": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "Application Gateway vnet resource group name"
+      }
+    },
+    "subnetName": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "Application Gateway subnet name"
+      }
+    },
+    "publicIPAddressName": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "PIP resource name"
+      }
+    },
+    "certData": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "SSL data in binary Base64 format"
+      }
+    },
+    "certPassword": {
+      "type": "securestring",
+      "minLength": 1,
+      "metadata": {
+        "description": "SSL certificate password"
+      }
+    },
+    "authCert": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "Public authentication certificate - in binary Base64 format"
+      }
+    },
+    "Authhostname": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "Backend hostheader/Host SNI names used as part of your HTTPS request"
+      }
+    },
+    "Noauthhostname": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "Backend hostheader/Host SNI names used as part of your HTTPS request"
+      }
+    },
+    "backendIPAddress": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "Backend web server IP address"
+      }
+    }
+  },
+  "variables": {
+    "applicationGatewayID": "[resourceId('Microsoft.Network/applicationGateways',parameters('applicationGatewayName'))]",
+    "capacity": 2,
+    "skuName": "Standard_Medium",
+    "subnetRef": "[concat(variables('vnetID'),'/subnets/',parameters('subnetName'))]",
+    "vnetID": "[resourceId(parameters('virtualNetworkResourceGroup'),'Microsoft.Network/virtualNetworks',parameters('virtualNetworkName'))]"
+  },
+  "resources": [
+    {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[parameters('publicIPAddressName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic"
+      },
+      "tags": {
+        "displayName": "[parameters('publicIPAddressName')]"
+      }
+    },
+    {
+      "apiVersion": "2016-06-01",
+      "name": "[parameters('applicationGatewayName')]",
+      "type": "Microsoft.Network/applicationGateways",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/publicIPAddresses/', parameters('publicIPAddressName'))]"
+      ],
+      "properties": {
+        "sku": {
+          "name": "[variables('skuName')]",
+          "tier": "Standard",
+          "capacity": "[variables('capacity')]"
+        },
+        "sslCertificates": [
+          {
+            "name": "appGatewaySslCert",
+            "properties": {
+              "data": "[parameters('certData')]",
+              "password": "[parameters('certPassword')]",
+              "publicCertData": "[parameters('authCert')]"
+            }
+          }
+        ],
+        "authenticationCertificates": [
+          {
+            "name": "PublicCert",
+            "properties": {
+               "data": "[parameters('authCert')]"
+            }
+          }
+
+        ],
+        "gatewayIPConfigurations": [
+          {
+            "name": "appGatewayIpConfig",
+            "properties": {
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              }
+            }
+          }
+        ],
+        "frontendIPConfigurations": [
+          {
+            "name": "appGatewayFrontendIP",
+            "properties": {
+              "PublicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses',parameters('publicIPAddressName'))]"
+              }
+            }
+          }
+        ],
+        "frontendPorts": [
+          {
+            "name": "appGWFEHttps",
+            "properties": {
+              "Port": 443
+            }
+          },
+          {
+            "name": "appGWFEHttp",
+            "properties": {
+              "Port": 80
+            }
+          }
+        ],
+        "probes": [
+          {
+            "name": "CustomProbe",
+            "properties": {
+              "protocol": "Https",
+              "host": "auth.simplesite.com:443",
+              "path": "/noauth/iisstart.htm",
+              "interval": 5,
+              "timeout": 120,
+              "unhealthyThreshold": 2
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "appGatewayBackendPool",
+            "properties": {
+              "BackendAddresses": [
+                {
+                  "IpAddress": "[parameters('backendIPAddress')]"
+                }
+              ]
+            }
+          }
+        ],
+        "backendHttpSettingsCollection": [
+          {
+            "name": "appGWBEHttpSettings",
+            "properties": {
+              "Port": 80,
+              "Protocol": "Http",
+              "CookieBasedAffinity": "Disabled"
+            }
+          },
+          {
+            "name": "appGWBEHttpsSettings",
+            "properties": {
+              "Port": 443,
+              "Protocol": "Https",
+              "CookieBasedAffinity": "Disabled",
+              "probe": {
+                "id": "[concat(variables('applicationGatewayID'), '/probes/CustomProbe')]"
+              },
+              "authenticationCertificates": [
+                {
+                  "id": "[concat(variables('applicationGatewayID'), '/authenticationCertificates/PublicCert')]"
+                }
+              ]
+            }
+          }
+        ],
+        "httpListeners": [
+          {
+            "name": "appGatewayHttpListener",
+            "properties": {
+              "FrontendIPConfiguration": {
+                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+              },
+              "FrontendPort": {
+                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/appGWFEHttp')]"
+              },
+              "Protocol": "Http",
+              "SslCertificate": null
+            }
+          },
+          {
+            "name": "appGatewayHttpsListenerNoAuth",
+            "properties": {
+              "FrontendIPConfiguration": {
+                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+              },
+              "FrontendPort": {
+                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/appGWFEHttps')]"
+              },
+              "Protocol": "Https",
+              "hostName": "[parameters('Noauthhostname')]",
+              "SslCertificate": {
+                "Id": "[concat(variables('applicationGatewayID'), '/sslCertificates/appGatewaySslCert')]"
+              },
+              "RequireServerNameIndication": "true"
+            }
+          },
+          {
+            "name": "appGatewayHttpsListenerAuth",
+            "properties": {
+              "FrontendIPConfiguration": {
+                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+              },
+              "FrontendPort": {
+                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/appGWFEHttps')]"
+              },
+              "Protocol": "Https",
+              "hostName": "[parameters('Authhostname')]",
+              "SslCertificate": {
+                "Id": "[concat(variables('applicationGatewayID'), '/sslCertificates/appGatewaySslCert')]"
+              },
+              "RequireServerNameIndication": "true"
+            }
+          }
+        ],
+        "requestRoutingRules": [
+          {
+            "Name": "HTTPrule",
+            "properties": {
+              "RuleType": "Basic",
+              "httpListener": {
+                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/appGatewayHttpListener')]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(variables('applicationGatewayID'), '/backendAddressPools/appGatewayBackendPool')]"
+              },
+              "backendHttpSettings": {
+                "id": "[concat(variables('applicationGatewayID'), '/backendHttpSettingsCollection/appGWBEHttpSettings')]"
+              }
+            }
+          },
+          {
+            "Name": "HTTPSruleNoAuth",
+            "properties": {
+              "RuleType": "Basic",
+              "httpListener": {
+                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/appGatewayHttpsListenerNoAuth')]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(variables('applicationGatewayID'), '/backendAddressPools/appGatewayBackendPool')]"
+              },
+              "backendHttpSettings": {
+                "id": "[concat(variables('applicationGatewayID'), '/backendHttpSettingsCollection/appGWBEHttpsSettings')]"
+              }
+            }
+          },
+          {
+            "Name": "HTTPSruleAuth",
+            "properties": {
+              "RuleType": "Basic",
+              "httpListener": {
+                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/appGatewayHttpsListenerAuth')]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(variables('applicationGatewayID'), '/backendAddressPools/appGatewayBackendPool')]"
+              },
+              "backendHttpSettings": {
+                "id": "[concat(variables('applicationGatewayID'), '/backendHttpSettingsCollection/appGWBEHttpsSettings')]"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,200 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json",
+    "contentVersion": "1.0.0.0",
+    "parameters" : {
+        "userImageStorageAccountName": {
+            "type": "string",
+            "defaultValue" : "prdeflystdlrs001"
+        },
+        "userImageStorageContainerName" : {
+            "type" : "string",
+            "defaultValue" : "vhds"
+        },
+        "userImageVhdName" : {
+            "type" : "string",
+            "defaultValue" : "DROOLS_AZURE.vhd"
+        },
+      "availabilitySetName": {
+          "type": "string",
+          "DefaultValue": "PRD-EFLY-AVSET"
+      },
+        "osType" : {
+            "type" : "string",
+            "allowedValues" : [
+                "windows",
+                "linux"
+            ]
+        },
+        "subscriptionId":{
+            "type" : "string",
+            "defaultValue":""
+        },
+        "location": {
+            "type": "String",
+            "defaultValue" : "brazilsouth"
+        },
+        "vmSize": {
+            "type": "string",
+            "defaultValue": "Standard_d3_v2"
+        },
+        "vmName": {
+            "type": "string",
+            "defaultValue" : "PRDEFLYDROOL001"
+        },
+        "virtualNetworkName":{
+            "type" : "string",
+            "defaultValue" : "PRD-EFLYTOUR-VNET"
+        },
+
+        "SubnetName":{
+          "type" : "string",
+          "defaultValue" : "PRD-EFLYTOUR-SUB-APP"
+        },
+        "nicName":{
+            "type" : "string",
+            "defaultValue":"ETH0"
+        }
+    },
+
+    "variables": {
+        "addressPrefix":"10.4.0.0/16",
+        "subnet1Name": "PRD-EFLYTOUR-SUB-APPGW",
+        "subnet2Name": "PRD-EFLYTOUR-SUB-WEB",
+        "subnet3Name": "PRD-EFLYTOUR-SUB-APP",
+        "subnet4Name": "PRD-EFLYTOUR-SUB-DB",
+        "subnet5Name": "GatewaySubnet",
+        "subnet1Prefix" : "10.4.0.0/24",
+        "subnet2Prefix" : "10.4.1.0/24",
+        "subnet3Prefix" : "10.4.2.0/24",
+        "subnet4Prefix" : "10.4.3.0/24",
+        "subnet5Prefix" : "10.4.4.0/24",
+
+        "vnetID":"[resourceId('Microsoft.Network/virtualNetworks',parameters('virtualNetworkName'))]",
+        "subnet1Ref" : "[concat(variables('vnetID'),'/subnets/',parameters('subnet1Name'))]",
+        "userImageName" : "[concat('http://',parameters('userImageStorageAccountName'),'.blob.core.windows.net/',parameters('userImageStorageContainerName'),'/',parameters('userImageVhdName'))]",
+        "osDiskVhdName" : "[concat('http://',parameters('userImageStorageAccountName'),'.blob.core.windows.net/',parameters('userImageStorageContainerName'),'/',parameters('vmName'),'osDisk.vhd')]"
+    },
+    "resources": [
+
+    {
+      "type": "Microsoft.Compute/availabilitySets",
+      "name": "[variables('availabilitySetName')]",
+      "apiVersion": "2016-04-30-preview",
+	    "location": "[resourceGroup().location]",
+	    "properties": {
+	       "platformFaultDomainCount": "3",
+	        "platformUpdateDomainCount": "5",
+	        "managed" : "true"
+	       }
+     },
+    {
+        "apiVersion": "2014-12-01-preview",
+        "type": "Microsoft.Network/virtualNetworks",
+        "name": "[parameters('virtualNetworkName')]",
+        "location": "[parameters('location')]",
+        "properties": {
+        "addressSpace": {
+            "addressPrefixes": [
+            "[variables('addressPrefix')]"
+            ]
+        },
+        "subnets": [
+            {
+            "name": "[variables('subnet1Name')]",
+            "properties" : {
+                "addressPrefix": "[variables('subnet1Prefix')]"
+               }
+            },
+
+            {
+            "name": "[variables('subnet2Name')]",
+            "properties" : {
+                "addressPrefix": "[variables('subnet2Prefix')]"
+             }
+            },
+            {
+            "name": "[variables('subnet3Name')]",
+            "properties" : {
+                "addressPrefix": "[variables('subnet3Prefix')]"
+             }
+            },
+            {
+            "name": "[variables('subnet4Name')]",
+            "properties" : {
+                "addressPrefix": "[variables('subnet4Prefix')]"
+             }
+            },
+            {
+            "name": "[variables('subnet5Name')]",
+            "properties" : {
+                "addressPrefix": "[variables('subnet5Prefix')]"
+            }
+          }
+        ]
+        }
+    },
+    {
+        "apiVersion": "2014-12-01-preview",
+        "type": "Microsoft.Network/networkInterfaces",
+        "name": "[parameters('nicName')]",
+        "location": "[parameters('location')]",
+        "dependsOn": [
+            "[concat('Microsoft.Network/publicIPAddresses/', parameters('publicIPAddressName'))]",
+            "[concat('Microsoft.Network/virtualNetworks/', parameters('virtualNetworkName'))]"
+        ],
+        "properties": {
+            "ipConfigurations": [
+            {
+                "name": "ipconfig1",
+                "properties": {
+                    "subnet": {
+                        "id": "[variables('subnet1Ref')]"
+                    }
+                }
+            }
+            ]
+        }
+    },
+    {
+        "apiVersion": "2014-12-01-preview",
+        "type": "Microsoft.Compute/virtualMachines",
+        "name": "[parameters('vmName')]",
+        "location": "[parameters('location')]",
+        "dependsOn": [
+            "[concat('Microsoft.Network/networkInterfaces/', parameters('nicName'))]"
+        ],
+        "properties": {
+            "hardwareProfile": {
+                "vmSize": "[parameters('vmSize')]"
+              },
+              "availabilitySet": {
+                "id": "[resourceId('Microsoft.Compute/availabilitySets', parameters('availabilitySetName'))]"
+              },
+
+            "osProfile": {
+                "computername": "[parameters('vmName')]"
+            },
+            "storageProfile": {
+                "osDisk" : {
+                    "name" : "[concat(parameters('vmName'),'-osDisk')]",
+                    "osType" : "[parameters('osType')]",
+                    "caching" : "ReadWrite",
+                    "image" : {
+                        "uri" : "[variables('userImageName')]"
+                    },
+                    "vhd" : {
+                        "uri" : "[variables('osDiskVhdName')]"
+                    }
+                }
+            }
+          },
+            "networkProfile": {
+                "networkInterfaces" : [
+                {
+                    "id": "[resourceId('Microsoft.Network/networkInterfaces',parameters('nicName'))]"
+                }
+                ]
+            }
+        }
+    ]
+}
